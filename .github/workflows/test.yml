@@ -23,4 +23,7 @@ jobs:
       run: npx playwright install      
 
     - name: Run tests
+      env:
+        TEST_USER_USERNAME: ${{ secrets.TEST_USER_USERNAME }}
+        TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
       run: npm test
