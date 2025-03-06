@@ -3,6 +3,7 @@ name: Run Playwright Tests
 on:
   push:
     branches: [main, development]
+  pull_request:
 
 jobs:
   test:
@@ -10,60 +11,66 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        shard: [1/2, 2/2] # Adjusted to 2 shards as per earlier recommendation
-    steps:
-      - uses: actions/checkout@v4
+        shard: [1/2, 2/2] # Splitting tests into 2 shards
 
-      - name: Setup Node.js environment
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm" # This already caches node_modules, but we'll enhance it with manual control
+          cache: "npm"
           cache-dependency-path: package-lock.json
 
-      - name: Cache node modules
+      - name: Cache Node Modules
         id: cache-npm
         uses: actions/cache@v3
         with:
-          path: |
-            node_modules
-            ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          path: node_modules
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-npm-
+            npm-${{ runner.os }}-
 
-      - name: Install dependencies
+      - name: Install Dependencies
         if: steps.cache-npm.outputs.cache-hit != 'true'
         run: npm ci
 
-      - name: Cache Playwright browsers
-        id: cache-playwright-browsers
+      - name: Cache Playwright Browsers
+        id: cache-playwright
         uses: actions/cache@v3
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package.json') }}-${{ hashFiles('playwright.config.ts') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('package.json', 'playwright.config.ts') }}
           restore-keys: |
-            ${{ runner.os }}-playwright-
+            playwright-${{ runner.os }}-
 
-      - name: Install Playwright browsers
-        if: steps.cache-playwright-browsers.outputs.cache-hit != 'true'
+      - name: Install Playwright Browsers (if missing)
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
 
-      - name: Show tests for this shard
+      - name: Show Available Playwright Projects
+        run: npx playwright test --list
+        env:
+          TEST_USER_USERNAME: ${{ secrets.TEST_USER_USERNAME }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+      - name: List Tests for Shard ${{ matrix.shard }}
         run: npx playwright test --list --shard=${{ matrix.shard }} --project=chromium
         env:
           TEST_USER_USERNAME: ${{ secrets.TEST_USER_USERNAME }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
 
-      - name: Run tests
+      - name: Run Playwright Tests
         env:
           TEST_USER_USERNAME: ${{ secrets.TEST_USER_USERNAME }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
-        run: npx playwright test --shard=${{ matrix.shard }} --workers=1 --project=chromium --max-failures=5 --reporter=list
+        run: npx playwright test --shard=${{ matrix.shard }} --workers=2 --max-failures=3 --project=chromium --reporter=dot
 
-      - name: Upload test artifacts
+      - name: Upload Test Artifacts on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.shard }} # Unique artifact name per shard
+          name: test-results-${{ matrix.shard }}
           path: playwright-report/
