@@ -17,18 +17,20 @@ jobs:
           node-version: "20"
 
       - name: Cache dependencies
+        id: cache-dependencies # Unique ID to reference the step
         uses: actions/cache@v3
         with:
-          path: ~/.npm
+          path: node_modules # Cache the node_modules directory
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
 
       - name: Install dependencies
+        if: steps.cache-dependencies.outputs.cache-hit != 'true' # Only run if cache is not hit
         run: npm ci
 
       - name: Cache Playwright browsers
-        id: cache-playwright-browsers # Unique ID to reference the step
+        id: cache-playwright-browsers
         uses: actions/cache@v3
         with:
           path: ~/.cache/ms-playwright
