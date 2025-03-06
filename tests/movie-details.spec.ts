@@ -23,52 +23,29 @@ test.describe("Movie Details Page", () => {
     // Log page content for debugging (optional, remove in production)
     console.log("Page content:", await page.content());
 
-    // Wait for the movie title to be visible (adjust timeout if needed)
+    // Wait for the <pre> tag containing the JSON to be visible
     await page
-      .waitForSelector("h1", { state: "visible", timeout: 10000 })
+      .waitForSelector("pre", { state: "visible", timeout: 10000 })
       .catch((e) => {
-        console.error("Failed to find h1 element:", e);
+        console.error("Failed to find pre element:", e);
+        throw e; // Fail the test if the element isn't found
       });
 
-    // Verify the movie title is displayed (adjust locator if h1 is incorrect)
-    await expect(page.locator("h1"))
-      .toHaveText("Fight Club", {
-        timeout: 10000,
-      })
-      .catch(async (e) => {
-        console.error("Title check failed:", e);
-        // Fallback: Check alternative locators if h1 is not used
-        await expect(page.locator(".movie-title, .title")).toHaveText(
-          "Fight Club",
-          {
-            timeout: 10000,
-          }
-        );
-      });
+    // Get the text content of the <pre> tag
+    const jsonText = await page.locator("pre").innerText();
 
-    // Wait for the release date to be visible
-    await page
-      .waitForSelector(".release-date", { state: "visible", timeout: 10000 })
-      .catch((e) => {
-        console.error("Failed to find release-date element:", e);
-      });
+    // Parse the JSON to verify its contents
+    const movieData = JSON.parse(jsonText);
 
-    // Verify the release date is displayed
-    await expect(page.locator(".release-date")).toHaveText("1999-10-15", {
-      timeout: 10000,
-    });
+    // Verify the movie title
+    expect(movieData.title).toBe("Fight Club");
 
-    // Wait for the overview to be visible
-    await page
-      .waitForSelector(".overview", { state: "visible", timeout: 10000 })
-      .catch((e) => {
-        console.error("Failed to find overview element:", e);
-      });
+    // Verify the release date
+    expect(movieData.release_date).toBe("1999-10-15");
 
-    // Verify the overview is displayed
-    await expect(page.locator(".overview")).toHaveText(
-      "A ticking-time-bomb insomniac and a slippery soap salesman channel primal male aggression into a shocking new form of therapy.",
-      { timeout: 10000 }
+    // Verify the overview
+    expect(movieData.overview).toBe(
+      "A ticking-time-bomb insomniac and a slippery soap salesman channel primal male aggression into a shocking new form of therapy."
     );
   });
 });
