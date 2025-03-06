@@ -35,7 +35,7 @@ test.describe("Movie Details Page", () => {
       .toHaveText("Fight Club", {
         timeout: 10000,
       })
-      .catch((e) => {
+      .catch(async (e) => {
         console.error("Title check failed:", e);
         // Fallback: Check alternative locators if h1 is not used
         await expect(page.locator(".movie-title, .title")).toHaveText(
