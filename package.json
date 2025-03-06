@@ -4,16 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "npx playwright test",
-    "lint": "eslint . --ext .js,.ts --fix",
-    "lint:check": "eslint . --ext .ts"
+    "test": "npx playwright test"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@playwright/test": "^1.50.1",
-    "@types/node": "^22.13.4",
-    "eslint": "^9.21.0"
+    "@types/node": "^22.13.4"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7"
   }
 }
