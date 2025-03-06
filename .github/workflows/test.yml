@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        shard: [1/2, 2/2] # Reduced to 2 shards for better balance with 3 tests
+        shard: [1/2, 2/2, 3/3]
     steps:
       - uses: actions/checkout@v4
 
