@@ -6,13 +6,12 @@ on:
   pull_request:
 
 jobs:
-  test:
+  setup:
+    name: Setup Dependencies
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      matrix:
-        shard: [1/3, 2/3, 3/3]
-
+    timeout-minutes: 15
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }} # Pass cache key to test jobs
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,14 +23,18 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
 
+      - name: Generate Cache Key
+        id: cache-key
+        run: echo "key=setup-${{ runner.os }}-${{ hashFiles('package-lock.json', 'playwright.config.ts') }}" >> $GITHUB_OUTPUT
+
       - name: Cache Node Modules
         id: cache-npm
         uses: actions/cache@v3
         with:
           path: node_modules
-          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: ${{ steps.cache-key.outputs.key }}
           restore-keys: |
-            npm-${{ runner.os }}-
+            setup-${{ runner.os }}-
 
       - name: Install Dependencies
         if: steps.cache-npm.outputs.cache-hit != 'true'
@@ -42,7 +45,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package.json', 'playwright.config.ts') }}
+          key: playwright-${{ steps.cache-key.outputs.key }}
           restore-keys: |
             playwright-${{ runner.os }}-
 
@@ -50,13 +53,45 @@ jobs:
         if: steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
 
-      - name: Show Available Playwright Projects
+      - name: Save Node Modules & Playwright Browsers
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-${{ steps.cache-key.outputs.key }}
+          path: |
+            node_modules
+            ~/.cache/ms-playwright
+
+  test:
+    name: Run Playwright Tests
+    needs: setup # Wait for setup job
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        shard: [1/2, 2/2] # Run two parallel test shards
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Cached Setup Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: setup-${{ needs.setup.outputs.cache-key }}
+          path: .
+
+      - name: Move Cached Files to Correct Locations
+        run: |
+          mv node_modules node_modules_backup && rm -rf node_modules && mv node_modules_backup node_modules
+          mv .cache/ms-playwright ~/.cache/ms-playwright
+
+      - name: List Available Playwright Projects
         run: npx playwright test --list
         env:
           TEST_USER_USERNAME: ${{ secrets.TEST_USER_USERNAME }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
 
-      - name: List Tests for Shard ${{ matrix.shard }}
+      - name: Show Tests for Shard ${{ matrix.shard }}
         run: npx playwright test --list --shard=${{ matrix.shard }} --project=chromium
         env:
           TEST_USER_USERNAME: ${{ secrets.TEST_USER_USERNAME }}
